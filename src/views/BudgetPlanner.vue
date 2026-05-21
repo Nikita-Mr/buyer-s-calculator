@@ -242,7 +242,7 @@ onMounted(() => {
       if (unsubscribeBudget) unsubscribeBudget();
     });
   }
-}); ё
+});
 
 watch([totalSpent, () => budgetData.amount], ([spent, budget]) => {
   if (!budget || budget <= 0) return;

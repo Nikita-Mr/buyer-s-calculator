@@ -967,6 +967,12 @@ onUnmounted(() => {
             </div>
             <div class="flex gap-2">
               <button
+                @click="openEdit(store)"
+                class="text-white/90 hover:text-white"
+              >
+                <UIcon icon="mdi:pencil" class="w-5 h-5" />
+              </button>
+              <button
                 @click="removeStore(store.name)"
                 class="text-white/90 hover:text-white"
               >
