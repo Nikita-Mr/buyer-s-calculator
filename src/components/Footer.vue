@@ -1,14 +1,41 @@
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, watch, nextTick, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
+const route = useRoute();
+const router = useRouter();
 const activeIndex = ref(0);
 const indicatorPosition = ref({ left: '0px', width: '70px' });
 
+// Маппинг путей к индексам
+const pathToIndex = {
+  '/': 0,
+  '/list-products': 1,
+  '/budget-planner': 2,
+};
+
+// Функция обновления активного индекса по URL
+const updateActiveIndexFromRoute = () => {
+  const path = route.path;
+  const index = pathToIndex[path];
+  if (index !== undefined) {
+    activeIndex.value = index;
+  }
+};
+
+// Переключение вкладки
 const active = (num) => {
   activeIndex.value = num;
   updateIndicatorPosition();
+  
+  // Переход по маршруту
+  const paths = ['/', '/list-products', '/budget-planner'];
+  if (paths[num]) {
+    router.push(paths[num]);
+  }
 };
 
+// Обновление позиции индикатора
 const updateIndicatorPosition = () => {
   nextTick(() => {
     const activeLi = document.querySelector('.navigation ul li.active');
@@ -18,8 +45,6 @@ const updateIndicatorPosition = () => {
     if (activeLi && indicator && ul) {
       const liRect = activeLi.getBoundingClientRect();
       const ulRect = ul.getBoundingClientRect();
-
-      // Вычисляем позицию относительно ul
       const leftPosition = liRect.left - ulRect.left;
       const liWidth = liRect.width;
 
@@ -35,8 +60,15 @@ watch(activeIndex, () => {
   updateIndicatorPosition();
 });
 
-// При монтировании компонента устанавливаем позицию
+// Следим за изменением маршрута (когда нажимают кнопку "Назад")
+watch(() => route.path, () => {
+  updateActiveIndexFromRoute();
+  updateIndicatorPosition();
+}, { immediate: true });
+
+// При монтировании компонента
 onMounted(() => {
+  updateActiveIndexFromRoute();
   updateIndicatorPosition();
 
   // Обновляем позицию при изменении размера окна
@@ -44,7 +76,6 @@ onMounted(() => {
 });
 
 // Очищаем обработчик
-import { onUnmounted } from 'vue';
 onUnmounted(() => {
   window.removeEventListener('resize', updateIndicatorPosition);
 });

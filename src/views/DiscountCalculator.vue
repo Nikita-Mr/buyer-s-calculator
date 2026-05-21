@@ -400,7 +400,6 @@ const formatPrice = (price) => {
           Добавить товар
         </button>
 
-
         <!-- Поле для ввода общего процента скидки -->
         <div class="mt-2">
           <label class="text-xs font-medium text-gray-600 block mb-1"
@@ -427,9 +426,9 @@ const formatPrice = (price) => {
         >
           <div class="grid grid-cols-2 gap-3">
             <div class="bg-[var(--color3)] rounded-xl p-3 text-center">
-              <div class="text-xs text-gray-500">Общая сумма без скидки</div>
-              <div class="text-lg font-bold text-gray-800">
-                {{ multipleResult.totalPrice }} ₽
+              <div class="text-lg text-gray-600">
+                Цена со скидкой:
+                <span class="font-bold">{{ multipleResult.finalPrice }} ₽</span>
               </div>
             </div>
             <div class="bg-[var(--color3)] rounded-xl p-3 text-center">
@@ -446,9 +445,10 @@ const formatPrice = (price) => {
                 >{{ multipleResult.percent }}%</span
               >
             </div>
-            <div class="text-sm text-gray-600">
-              Итоговая цена со скидкой:
-              <span class="font-bold">{{ multipleResult.finalPrice }} ₽</span>
+
+            <div class="text-xs text-gray-500">Общая сумма без скидки</div>
+            <div class="text-sm font-bold text-gray-800">
+              {{ multipleResult.totalPrice }} ₽
             </div>
             <div class="text-xs text-gray-400 mt-1">
               Товаров: {{ multipleResult.itemCount }}

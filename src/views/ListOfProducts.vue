@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue';
-
+import { notifyListUpdated } from '@/utils/notifications';
 // Состояние
 const showStoreModal = ref(true);
 const stores = ref([]);
@@ -16,10 +16,10 @@ const selectedHistoryItem = ref(null);
 const purchaseCost = ref('');
 const showCostModal = ref(false);
 const pendingStoreForCost = ref('');
-// Данные
 const productsText = ref({});
 const productsList = ref({});
 const shoppingHistory = ref([]);
+const productsData = ref({});
 
 import { db } from '@/firebase'; // Убедитесь, что firebase.js настроен
 import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -29,7 +29,7 @@ const roomId = localStorage.getItem('roomId');
 const roomCode = localStorage.getItem('roomCode');
 let unsubscribe = null;
 
-import { useModalBack } from '@/composables/useBackButton';
+import { useModalBack, useTabBack } from '@/composables/useBackButton';
 
 const closeStoreModal = () => {
   showStoreModal.value = false;
@@ -50,6 +50,12 @@ const closeAddStore = () => {
   newStoreName.value = '';
 };
 
+// Регистрация вкладки для навигации назад
+const switchTab = (tabName) => {
+  activeTab.value = tabName;
+};
+
+useTabBack('products-tab', activeTab, switchTab);
 // Регистрация модалок (одна строка на каждую)
 useModalBack('store-modal', showStoreModal, closeStoreModal);
 useModalBack('edit-modal', editingStore, closeEditModal);
@@ -231,27 +237,26 @@ const getStoreDisplay = (store) => {
 
 const loadData = () => {
   const savedStores = localStorage.getItem('userStores');
-  const savedProductsText = localStorage.getItem('productsText');
+  const savedProductsList = localStorage.getItem('productsList');
   const savedHistory = localStorage.getItem('shoppingHistory');
-  const savedAllSelected = localStorage.getItem('allSelectedStores');
+  const savedAvailableStores = localStorage.getItem('allAvailableStores');
 
-  // Восстанавливаем выбранные магазины в availableStores
-  if (savedAllSelected) {
-    const selected = JSON.parse(savedAllSelected);
-    availableStores.value.forEach((store) => {
-      const found = selected.find((s) => s.name === store.name);
+  // Восстанавливаем availableStores (с выбранными магазинами)
+  if (savedAvailableStores) {
+    const available = JSON.parse(savedAvailableStores);
+    // Обновляем availableStores, сохраняя предопределённые id
+    for (const store of availableStores.value) {
+      const found = available.find(s => s.id === store.id);
       if (found) {
-        store.selected = true;
+        store.selected = found.selected;
         if (found.color) store.color = found.color;
       }
-    });
-    // Добавляем кастомные магазины в availableStores
-    const customStores = selected.filter((s) => s.custom);
-    customStores.forEach((custom) => {
-      if (!availableStores.value.find((s) => s.name === custom.name)) {
-        availableStores.value.push(custom);
-      }
-    });
+    }
+    // Добавляем кастомные магазины из сохранённых
+    const customStores = available.filter(s => s.custom && !availableStores.value.find(ex => ex.id === s.id));
+    if (customStores.length > 0) {
+      availableStores.value.push(...customStores);
+    }
   }
 
   if (savedStores) {
@@ -261,11 +266,8 @@ const loadData = () => {
     }
   }
 
-  if (savedProductsText) {
-    productsText.value = JSON.parse(savedProductsText);
-    Object.keys(productsText.value).forEach((store) => {
-      parseProductsToList(store, productsText.value[store]);
-    });
+  if (savedProductsList) {
+    productsList.value = JSON.parse(savedProductsList);
   }
 
   if (savedHistory) {
@@ -274,29 +276,18 @@ const loadData = () => {
 };
 
 const saveDataSync = async () => {
-  console.log('💾 Сохранение данных...');
-
-  // Очищаем от undefined перед сохранением
-  const cleanStores = (stores.value || []).filter(
-    (s) => s !== undefined && s !== null
+  localStorage.setItem('userStores', JSON.stringify(stores.value));
+  localStorage.setItem('productsList', JSON.stringify(productsList.value)); // <-- productsList
+  localStorage.setItem(
+    'shoppingHistory',
+    JSON.stringify(shoppingHistory.value)
   );
-  const cleanProducts = {};
-  for (const [key, value] of Object.entries(productsText.value || {})) {
-    if (value !== undefined && value !== null) {
-      cleanProducts[key] = value;
-    }
-  }
-  const cleanHistory = (shoppingHistory.value || []).filter(
-    (h) => h !== undefined && h !== null
+  localStorage.setItem(
+    'allAvailableStores',
+    JSON.stringify(availableStores.value)
   );
 
-  localStorage.setItem('userStores', JSON.stringify(cleanStores));
-  localStorage.setItem('productsText', JSON.stringify(cleanProducts));
-  localStorage.setItem('shoppingHistory', JSON.stringify(cleanHistory));
-
-  const allSelected = (availableStores.value || []).filter(
-    (s) => s.selected && s !== undefined
-  );
+  const allSelected = availableStores.value.filter((s) => s.selected);
   localStorage.setItem('allSelectedStores', JSON.stringify(allSelected));
 
   if (roomId) {
@@ -324,21 +315,43 @@ const updateProductsText = (storeName, text) => {
   saveDataSync();
 };
 
-const saveStores = () => {
-  stores.value = availableStores.value.filter((store) => store.selected);
+// Функция для определения контрастного цвета текста (белый или чёрный)
+const getContrastColor = (hexColor) => {
+  if (!hexColor || !hexColor.startsWith('#')) return '#000000';
 
-  if (stores.value.length === 0) {
-    alert('Пожалуйста, выберите хотя бы один магазин');
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  return brightness > 128 ? '#1a1a1a' : '#ffffff';
+};
+
+const saveStores = () => {
+  const newlySelectedStores = availableStores.value.filter((store) => store.selected);
+  
+  const existingStoreNames = stores.value.map(s => s.name);
+  const storesToAdd = newlySelectedStores.filter(s => !existingStoreNames.includes(s.name));
+  
+  if (storesToAdd.length === 0 && newlySelectedStores.length > 0) {
+    showStoreModal.value = false;
     return;
   }
-
-  stores.value.forEach((store) => {
-    if (!productsText.value[store.name]) {
-      productsText.value[store.name] = '';
+  
+  if (storesToAdd.length === 0) {
+    alert('Выберите хотя бы один магазин');
+    return;
+  }
+  
+  stores.value = [...stores.value, ...storesToAdd];
+  
+  storesToAdd.forEach((store) => {
+    if (!productsList.value[store.name]) {
       productsList.value[store.name] = [];
     }
   });
-
+  
   saveDataSync();
   showStoreModal.value = false;
 };
@@ -363,21 +376,20 @@ const addCustomStore = () => {
     id: Date.now(),
     name: newStoreName.value.trim(),
     logo: null,
-    selected: true,
+    selected: false,
     custom: true,
     color: newStoreColor.value,
+    isName: true,
   };
 
   availableStores.value.push(customStore);
-  stores.value.push(customStore);
-  productsText.value[customStore.name] = '';
-  productsList.value[customStore.name] = [];
+
+  // Сразу синхронизируем с партнером
   saveDataSync();
 
   newStoreName.value = '';
   newStoreColor.value = '#9E9E9E';
   showAddStore.value = false;
-  syncToFirebase();
 };
 
 // Двойной клик/тап на продукт
@@ -385,28 +397,20 @@ const toggleProductComplete = (storeName, productId) => {
   console.log('🔘 Клик по продукту:', productId);
 
   const products = productsList.value[storeName];
-  if (!products || products.length === 0) return;
+  if (!products) return;
 
   const productIndex = products.findIndex((p) => p.id === productId);
   if (productIndex === -1) return;
 
-  // Безопасное переключение статуса
-  const newProducts = [...products];
-  newProducts[productIndex] = {
-    ...newProducts[productIndex],
-    completed: !newProducts[productIndex].completed
-  };
-  
-  productsList.value[storeName] = newProducts;
+  // Меняем статус
+  products[productIndex].completed = !products[productIndex].completed;
 
-  // Обновляем текст
-  productsText.value[storeName] = newProducts.map((p) => p.name).join('\n');
-
+  // Сохраняем
   saveDataSync();
 
-  // Проверяем, все ли зачёркнуты
-  const allCompleted = newProducts.every((p) => p.completed);
-  if (allCompleted && newProducts.length > 0) {
+  // ПРОВЕРЯЕМ, ВСЕ ЛИ ЗАЧЁРКНУТЫ
+  const allCompleted = products.every((p) => p.completed);
+  if (allCompleted && products.length > 0) {
     pendingStoreForCost.value = storeName;
     showCostModal.value = true;
   }
@@ -426,7 +430,7 @@ const saveWithCost = (skip = false) => {
       id: Date.now(),
       date: new Date().toISOString(),
       store: storeName,
-      products: [...list],
+      products: [...list], // Сохраняем копию списка
       totalCost: cost,
       storeLogo: storeInfo?.logo,
       storeColor: storeInfo?.color,
@@ -434,7 +438,7 @@ const saveWithCost = (skip = false) => {
     shoppingHistory.value.unshift(historyItem);
   }
 
-  // В бюджет добавляем всегда (с пометкой unrated, если 0)
+  // В бюджет
   const budgetExpenses = JSON.parse(
     localStorage.getItem('budgetExpenses') || '[]'
   );
@@ -448,7 +452,6 @@ const saveWithCost = (skip = false) => {
   budgetExpenses.push(newExpense);
   localStorage.setItem('budgetExpenses', JSON.stringify(budgetExpenses));
 
-  // Обновляем бюджет в localStorage
   const budgetData = JSON.parse(
     localStorage.getItem('budgetData') ||
       '{"amount":0,"endDate":null,"expenses":[]}'
@@ -456,23 +459,22 @@ const saveWithCost = (skip = false) => {
   budgetData.expenses = budgetExpenses;
   localStorage.setItem('budgetData', JSON.stringify(budgetData));
 
-  // ВАЖНО: СИНХРОНИЗИРУЕМ БЮДЖЕТ ВРУЧНУЮ
   if (roomId) {
     updateDoc(doc(db, 'rooms', roomId), { budget: budgetData })
       .then(() => console.log('✅ Бюджет отправлен в Firebase'))
       .catch((e) => console.error('❌ Ошибка отправки бюджета:', e));
   }
 
-  // Вызываем общую синхронизацию (она обновит остальные данные)
+  // ОЧИЩАЕМ СПИСОК ПРОДУКТОВ
+  productsList.value[storeName] = [];
+
+  // Сохраняем изменения
   saveDataSync();
 
-  // ОЧИЩАЕМ СПИСОК ВСЕГДА
-  productsList.value[storeName] = [];
-  productsText.value[storeName] = '';
+  // Сбрасываем модалку
   purchaseCost.value = '';
   showCostModal.value = false;
   pendingStoreForCost.value = '';
-  syncToFirebase();
 };
 
 // Обработчик для тач-событий на телефоне
@@ -496,6 +498,11 @@ const saveToHistory = (storeName) => {
   };
 
   shoppingHistory.value.unshift(historyItem);
+  saveDataSync();
+};
+
+const toggleStoreSelection = (store) => {
+  store.selected = !store.selected;
   saveDataSync();
 };
 
@@ -556,7 +563,8 @@ const formatDate = (dateString) => {
 
 const openEdit = (store) => {
   editingStore.value = store;
-  tempProductsText.value = productsText.value[store.name] || '';
+  const products = productsList.value[store.name] || [];
+  tempProductsText.value = products.map((p) => p.name).join('\n');
 };
 
 const closeEdit = () => {
@@ -566,11 +574,27 @@ const closeEdit = () => {
 
 const saveEdit = () => {
   if (editingStore.value) {
-    updateProductsText(editingStore.value.name, tempProductsText.value);
+    const storeName = editingStore.value.name;
+    const lines = tempProductsText.value
+      .split('\n')
+      .filter((line) => line.trim());
+    const oldProducts = productsList.value[storeName] || [];
+
+    const newProducts = lines.map((line) => {
+      const trimmedLine = line.trim();
+      const existing = oldProducts.find((p) => p.name === trimmedLine);
+      return {
+        id: existing?.id || Date.now() + Math.random(),
+        name: trimmedLine,
+        completed: existing?.completed || false,
+      };
+    });
+
+    productsList.value[storeName] = newProducts;
     editingStore.value = null;
     tempProductsText.value = '';
+    saveDataSync();
   }
-  syncToFirebase();
 };
 
 const setupRealtimeSync = () => {
@@ -579,95 +603,74 @@ const setupRealtimeSync = () => {
   unsubscribe = onSnapshot(doc(db, 'rooms', roomId), (docSnapshot) => {
     if (docSnapshot.exists()) {
       const data = docSnapshot.data();
-
-      // Если изменения пришли от партнера
+      
       if (data.lastChangedBy !== userId.value) {
-        // 1. Синхронизация магазинов
-        const remoteStores = data.stores || [];
-        if (JSON.stringify(remoteStores) !== JSON.stringify(stores.value)) {
-          stores.value = remoteStores;
-          localStorage.setItem('userStores', JSON.stringify(remoteStores));
-        }
-
-        // 2. Синхронизация продуктов (ВАЖНО!)
-        const remoteProducts = data.products || {};
-        const localProducts = productsText.value;
-
-        if (JSON.stringify(remoteProducts) !== JSON.stringify(localProducts)) {
-          productsText.value = remoteProducts;
-          localStorage.setItem('productsText', JSON.stringify(remoteProducts));
-
-          // Пересоздаём productsList для каждого магазина
-          Object.keys(remoteProducts).forEach((storeName) => {
-            const text = remoteProducts[storeName];
-            if (!text) {
-              productsList.value[storeName] = [];
-              return;
+        
+        // Проверяем изменения в продуктах (только уведомление об обновлении)
+        if (data.productsList) {
+          const remoteProducts = data.productsList;
+          const localProducts = productsList.value;
+          
+          // Проверяем, были ли изменения
+          const hasChanges = JSON.stringify(remoteProducts) !== JSON.stringify(localProducts);
+          
+          if (hasChanges) {
+            // Определяем, какие магазины изменились
+            const changedStores = [];
+            for (const storeName in remoteProducts) {
+              const remoteStore = JSON.stringify(remoteProducts[storeName] || []);
+              const localStore = JSON.stringify(localProducts[storeName] || []);
+              if (remoteStore !== localStore) {
+                changedStores.push(storeName);
+              }
             }
-
-            const lines = text.split('\n').filter((line) => line.trim());
-
-            // Получаем старый список продуктов (с их статусами completed)
-            const oldProducts = productsList.value[storeName] || [];
-
-            // Создаём новый список с сохранением статуса completed
-            const newProducts = lines.map((line) => {
-              const trimmedLine = line.trim();
-              // Ищем продукт с таким же именем в старом списке
-              const existingProduct = oldProducts.find(
-                (p) => p.name === trimmedLine
-              );
-              return {
-                id: existingProduct?.id || Date.now() + Math.random(),
-                name: trimmedLine,
-                completed: existingProduct?.completed || false,
-              };
-            });
-
-            productsList.value[storeName] = newProducts;
-          });
-
-          // Удаляем магазины, которых больше нет в remoteProducts
-          Object.keys(productsList.value).forEach((storeName) => {
-            if (!remoteProducts[storeName]) {
-              delete productsList.value[storeName];
+            
+            // Показываем уведомление для первого изменённого магазина
+            if (changedStores.length > 0) {
+              notifyListUpdated(changedStores[0], 'updated');
             }
-          });
+            
+            productsList.value = remoteProducts;
+            localStorage.setItem('productsList', JSON.stringify(remoteProducts));
+          }
         }
-
-        // 3. Синхронизация истории
-        const remoteHistory = data.history || [];
-        if (
-          JSON.stringify(remoteHistory) !==
-          JSON.stringify(shoppingHistory.value)
-        ) {
-          shoppingHistory.value = remoteHistory;
-          localStorage.setItem(
-            'shoppingHistory',
-            JSON.stringify(remoteHistory)
-          );
+        
+        // Остальная синхронизация магазинов...
+        if (data.availableStores) {
+          const remoteStores = data.availableStores;
+          const currentStoreIds = availableStores.value.map(s => s.id);
+          const newStores = remoteStores.filter(s => !currentStoreIds.includes(s.id));
+          
+          if (newStores.length > 0) {
+            availableStores.value = [...availableStores.value, ...newStores];
+          }
         }
-
-        // 4. Синхронизация бюджета
+        
+        if (data.stores) {
+          const remoteStores = data.stores;
+          const currentStoreNames = stores.value.map(s => s.name);
+          const newStores = remoteStores.filter(s => !currentStoreNames.includes(s.name));
+          
+          if (newStores.length > 0) {
+            stores.value = [...stores.value, ...newStores];
+            localStorage.setItem('userStores', JSON.stringify(stores.value));
+          }
+        }
+        
+        // Синхронизация истории
+        if (data.history) {
+          shoppingHistory.value = data.history;
+          localStorage.setItem('shoppingHistory', JSON.stringify(data.history));
+        }
+        
+        // Синхронизация бюджета
         if (data.budget) {
           localStorage.setItem('budgetData', JSON.stringify(data.budget));
           window.dispatchEvent(
             new CustomEvent('budgetUpdated', { detail: data.budget })
           );
         }
-
-        // Уведомление
-        if (
-          data.lastChangedBy !== userId.value &&
-          'Notification' in window &&
-          Notification.permission === 'granted'
-        ) {
-          new Notification('🛒 Список обновлён!', {
-            body: 'Ваш партнер обновил список покупок',
-            icon: '/favicon.ico',
-          });
-        }
-
+        
         window.dispatchEvent(new Event('storesUpdated'));
       }
     }
@@ -688,25 +691,17 @@ const deleteHistoryItem = (item) => {
 
 // При добавлении продукта отправляем в Firebase
 const syncToFirebase = async (changedBy = null) => {
-  console.log('📤 syncToFirebase вызвана!');
-
-  if (!roomId) {
-    console.warn('❌ Нет roomId, синхронизация пропущена');
-    return;
-  }
+  if (!roomId) return;
 
   const budgetData = JSON.parse(
     localStorage.getItem('budgetData') ||
       '{"amount":0,"endDate":null,"expenses":[]}'
   );
 
-  // Функция для удаления undefined и null
   const cleanData = (data) => {
     if (data === undefined || data === null) return null;
     if (Array.isArray(data)) {
-      return data
-        .map((item) => cleanData(item))
-        .filter((item) => item !== null);
+      return data.map((item) => cleanData(item));
     }
     if (typeof data === 'object') {
       const cleaned = {};
@@ -720,21 +715,14 @@ const syncToFirebase = async (changedBy = null) => {
     return data;
   };
 
-  // Очищаем все данные перед отправкой
-  const cleanStores = cleanData(stores.value);
-  const cleanProducts = cleanData(productsText.value);
-  const cleanHistory = cleanData(shoppingHistory.value);
-  const cleanBudget = cleanData(budgetData);
-
   const dataToSync = {
-    stores: cleanStores || [],
-    products: cleanProducts || {},
-    history: cleanHistory || [],
-    budget: cleanBudget || { amount: 0, endDate: null, expenses: [] },
+    stores: cleanData(stores.value) || [],
+    availableStores: cleanData(availableStores.value) || [], // <-- ДОБАВЛЯЕМ
+    productsList: cleanData(productsList.value) || {},
+    history: cleanData(shoppingHistory.value) || [],
+    budget: cleanData(budgetData) || { amount: 0, endDate: null, expenses: [] },
     lastChangedBy: changedBy || userId.value,
   };
-
-  console.log('📦 dataToSync:', dataToSync);
 
   try {
     await updateDoc(doc(db, 'rooms', roomId), dataToSync);
@@ -809,14 +797,19 @@ onUnmounted(() => {
 
           <div class="space-y-2 mb-4">
             <div
-              v-for="store in availableStores"
+              v-for="store in availableStores.filter(
+                (s) => !stores.some((existing) => existing.name === s.name)
+              )"
               :key="store.id"
-              @click="store.selected = !store.selected"
+              @click="toggleStoreSelection(store)"
               class="flex items-center p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all"
             >
               <div
-                class="w-10 h-10 rounded-full flex items-center justify-center"
-                :style="{ backgroundColor: store.color }"
+                class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                :style="{
+                  backgroundColor: store.color,
+                  color: getContrastColor(store.color),
+                }"
               >
                 <div
                   v-html="getStoreDisplay(store)"
@@ -958,19 +951,16 @@ onUnmounted(() => {
           >
             <div class="flex items-center gap-2">
               <div
-                class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
-                :style="{ backgroundColor: store.color || '' }"
+                class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                :style="{
+                  backgroundColor: store.color || 'var(--color2)',
+                  color: getContrastColor(store.color || 'var(--color2)'),
+                }"
                 v-html="getStoreDisplay(store)"
               ></div>
               <h3 class="font-bold text-lg">{{ store.name }}</h3>
             </div>
             <div class="flex gap-2">
-              <button
-                @click="openEdit(store)"
-                class="text-white/90 hover:text-white"
-              >
-                <UIcon icon="mdi:pencil" class="w-5 h-5" />
-              </button>
               <button
                 @click="removeStore(store.name)"
                 class="text-white/90 hover:text-white"
@@ -1108,13 +1098,17 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div v-else class="p-6 text-center text-gray-400">
+          <div
+            v-else
+            class="p-6 text-center text-gray-400"
+            @click="openEdit(store)"
+          >
             <UIcon
               icon="mdi:clipboard-text-outline"
               class="w-12 h-12 mx-auto mb-2 opacity-50"
             />
             <p>Нет продуктов</p>
-            <p class="text-sm">Нажмите ✏️ чтобы добавить</p>
+            <p class="text-sm">Нажмите чтобы добавить</p>
           </div>
         </div>
 
@@ -1205,11 +1199,29 @@ onUnmounted(() => {
         <div class="p-4 border-b flex justify-between items-center">
           <h3 class="text-xl font-bold flex items-center gap-2">
             <div
-              class="w-8 h-8 rounded-full"
-              :style="{ backgroundColor: editingStore.color }"
+              class="rounded-full flex justify-center items-center text-sm font-bold"
+              :class="
+                editingStore.isName == null
+                  ? 'w-8 h-8'
+                  : editingStore.isName
+                  ? 'w-8 h-8'
+                  : ' '
+              "
+              :style="{
+                backgroundColor: editingStore.color,
+                color: getContrastColor(editingStore.color),
+              }"
               v-html="getStoreDisplay(editingStore)"
             ></div>
-            {{ editingStore.isName ? editingStore.name : '' }}
+            <span>
+              {{
+                editingStore.isName == null
+                  ? editingStore.name
+                  : editingStore.isName
+                  ? editingStore.name
+                  : ''
+              }}
+            </span>
           </h3>
           <button @click="closeEdit" class="text-gray-500">
             <UIcon icon="mdi:close" class="w-6 h-6" />

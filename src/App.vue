@@ -2,9 +2,9 @@
 import Footer from './components/Footer.vue';
 
 import { onMounted, onUnmounted } from 'vue';
-import { setupNotifications } from './notifications';
 import { initBackButtonHandler } from '@/composables/useBackButton';
 import { useRouter } from 'vue-router';
+import { setupNotifications } from '@/utils/notifications';
 
 const router = useRouter();
 let cleanup = null;
@@ -13,6 +13,22 @@ onMounted(() => {
   const result = initBackButtonHandler(router);
   cleanup = result.cleanup;
 });
+
+onMounted(async () => {
+  const result = initBackButtonHandler(router);
+  cleanup = result.cleanup;
+  
+  // Инициализация уведомлений
+  const hasPermission = await setupNotifications();
+  console.log('📱 Уведомления инициализированы, разрешение:', hasPermission);
+  
+  // Если в нативном приложении, запрашиваем разрешение ещё раз
+  if (Capacitor.getPlatform() !== 'web' && !hasPermission) {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.requestPermissions();
+  }
+});
+
 
 onUnmounted(() => {
   if (cleanup) cleanup();

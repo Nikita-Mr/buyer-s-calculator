@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
-
+import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue';
+import { notifyBudgetExceeded, notifyBudgetWarning, showLocalNotification  } from '@/utils/notifications';
 // Бюджет
 const budgetData = reactive({
   amount: '',
@@ -11,6 +11,30 @@ import { db } from '@/firebase';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 const roomId = localStorage.getItem('roomId');
+
+
+let lastNotifiedPercent = 0
+
+// const testNotification = async () => {
+//   console.log('🔔 Тестовое уведомление');
+  
+//   // Тест 1: Обычное уведомление
+//   await showLocalNotification({
+//     title: '🔔 Тест уведомлений',
+//     body: 'Если вы видите это сообщение — уведомления работают!'
+//   });
+  
+//   // Тест 2: Превышение бюджета (через 2 секунды)
+//   setTimeout(async () => {
+//     await notifyBudgetExceeded('1500', '1000');
+//   }, 2000);
+  
+//   // Тест 3: Предупреждение бюджета (через 4 секунды)
+//   setTimeout(async () => {
+//     await notifyBudgetWarning('850', '1000');
+//   }, 4000);
+// };
+
 
 // Добавьте функцию синхронизации бюджета
 const syncBudgetToFirebase = async () => {
@@ -94,6 +118,13 @@ const addExpense = () => {
   saveExpenses();
   newExpense.name = '';
   newExpense.amount = '';
+  
+  // Проверяем бюджет после добавления
+  const budget = parseFloat(budgetData.amount) || 0;
+  const spent = totalSpent.value;
+  if (budget > 0 && spent > budget) {
+    notifyBudgetExceeded(spent.toFixed(0), budget.toFixed(0));
+  }
 };
 
 // Удаление расхода
@@ -132,6 +163,7 @@ const resetBudget = () => {
   expenses.value = [];
   localStorage.removeItem('budgetExpenses');
   localStorage.removeItem('budgetData');
+  syncBudgetToFirebase()
 };
 
 // Сохранение бюджета при изменении
@@ -191,6 +223,36 @@ onMounted(() => {
     });
   }
 });
+
+watch([totalSpent, () => budgetData.amount], ([spent, budget]) => {
+  if (!budget || budget <= 0) return;
+  
+  const spentNum = parseFloat(spent) || 0;
+  const budgetNum = parseFloat(budget) || 0;
+  const percent = (spentNum / budgetNum) * 100;
+  
+  // Превышение бюджета
+  if (spentNum > budgetNum) {
+    notifyBudgetExceeded(spentNum.toFixed(0), budgetNum.toFixed(0));
+  }
+  // Приближение к лимиту (80%, 90%, 95%)
+  else if (percent >= 80 && lastNotifiedPercent < 80) {
+    notifyBudgetWarning(spentNum.toFixed(0), budgetNum.toFixed(0));
+    lastNotifiedPercent = 80;
+  }
+  else if (percent >= 90 && lastNotifiedPercent < 90) {
+    notifyBudgetWarning(spentNum.toFixed(0), budgetNum.toFixed(0));
+    lastNotifiedPercent = 90;
+  }
+  else if (percent >= 95 && lastNotifiedPercent < 95) {
+    notifyBudgetWarning(spentNum.toFixed(0), budgetNum.toFixed(0));
+    lastNotifiedPercent = 95;
+  }
+  // Сбрасываем, если процент упал (например, удалили расходы)
+  else if (percent < 80) {
+    lastNotifiedPercent = 0;
+  }
+});
 </script>
 
 <template>
@@ -215,7 +277,12 @@ onMounted(() => {
         />
       </svg>
     </button>
-
+    <!-- <button 
+      @click="testNotification"
+      class="absolute top-4 right-4 w-[40px] h-[40px] bg-[var(--color2)] rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-transform text-white text-xl"
+    >
+      🔔
+    </button> -->
     <!-- Заголовок -->
     <div class="text-center pt-8 pb-6 px-4">
       <h1 class="text-2xl font-bold text-gray-800">Планировщик бюджета</h1>
