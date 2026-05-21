@@ -12,6 +12,14 @@ import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 const roomId = localStorage.getItem('roomId');
 
+const userId = computed(() => {
+  let id = localStorage.getItem('userId');
+  if (!id) {
+    id = 'user_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('userId', id);
+  }
+  return id;
+});
 
 let lastNotifiedPercent = 0
 
@@ -47,6 +55,7 @@ const syncBudgetToFirebase = async () => {
     };
     await updateDoc(doc(db, 'rooms', roomId), {
       budget: dataToSync,
+      lastChangedBy: userId.value, // <-- ДОБАВЛЯЕМ, чтобы знать, кто изменил
     });
     console.log('✅ Бюджет синхронизирован с Firebase');
   } catch (e) {
@@ -198,31 +207,42 @@ onMounted(() => {
   loadData();
 
   if (roomId) {
-    const unsubscribe = onSnapshot(doc(db, 'rooms', roomId), (docSnapshot) => {
-      console.log('📡 Получены данные из Firebase:', docSnapshot.data());
+    const unsubscribeBudget = onSnapshot(doc(db, 'rooms', roomId), (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
-        if (data.budget) {
-          console.log('💰 Бюджет получен:', data.budget);
-          // Обновляем локальные данные
+        if (data.budget && data.lastChangedBy !== userId.value) {
+          console.log('💰 Бюджет получен от партнёра:', data.budget);
+          
+          // Обновляем бюджет
           budgetData.amount = data.budget.amount || '';
           budgetData.endDate = data.budget.endDate || '';
-          expenses.value = data.budget.expenses || [];
+          
+          // ОБЪЕДИНЯЕМ расходы, а не заменяем
+          const remoteExpenses = data.budget.expenses || [];
+          const localExpenses = expenses.value;
+          
+          // Объединяем без дубликатов по id
+          const mergedExpenses = [...localExpenses];
+          for (const remoteExp of remoteExpenses) {
+            const exists = mergedExpenses.some(localExp => localExp.id === remoteExp.id);
+            if (!exists) {
+              mergedExpenses.push(remoteExp);
+            }
+          }
+          
+          expenses.value = mergedExpenses;
+          
           localStorage.setItem('budgetData', JSON.stringify(data.budget));
-          localStorage.setItem(
-            'budgetExpenses',
-            JSON.stringify(data.budget.expenses || [])
-          );
+          localStorage.setItem('budgetExpenses', JSON.stringify(mergedExpenses));
         }
       }
     });
 
-    // Отписываемся при размонтировании
     onUnmounted(() => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeBudget) unsubscribeBudget();
     });
   }
-});
+}); ё
 
 watch([totalSpent, () => budgetData.amount], ([spent, budget]) => {
   if (!budget || budget <= 0) return;

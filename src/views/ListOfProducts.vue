@@ -246,14 +246,16 @@ const loadData = () => {
     const available = JSON.parse(savedAvailableStores);
     // Обновляем availableStores, сохраняя предопределённые id
     for (const store of availableStores.value) {
-      const found = available.find(s => s.id === store.id);
+      const found = available.find((s) => s.id === store.id);
       if (found) {
         store.selected = found.selected;
         if (found.color) store.color = found.color;
       }
     }
     // Добавляем кастомные магазины из сохранённых
-    const customStores = available.filter(s => s.custom && !availableStores.value.find(ex => ex.id === s.id));
+    const customStores = available.filter(
+      (s) => s.custom && !availableStores.value.find((ex) => ex.id === s.id)
+    );
     if (customStores.length > 0) {
       availableStores.value.push(...customStores);
     }
@@ -329,29 +331,33 @@ const getContrastColor = (hexColor) => {
 };
 
 const saveStores = () => {
-  const newlySelectedStores = availableStores.value.filter((store) => store.selected);
-  
-  const existingStoreNames = stores.value.map(s => s.name);
-  const storesToAdd = newlySelectedStores.filter(s => !existingStoreNames.includes(s.name));
-  
+  const newlySelectedStores = availableStores.value.filter(
+    (store) => store.selected
+  );
+
+  const existingStoreNames = stores.value.map((s) => s.name);
+  const storesToAdd = newlySelectedStores.filter(
+    (s) => !existingStoreNames.includes(s.name)
+  );
+
   if (storesToAdd.length === 0 && newlySelectedStores.length > 0) {
     showStoreModal.value = false;
     return;
   }
-  
+
   if (storesToAdd.length === 0) {
     alert('Выберите хотя бы один магазин');
     return;
   }
-  
+
   stores.value = [...stores.value, ...storesToAdd];
-  
+
   storesToAdd.forEach((store) => {
     if (!productsList.value[store.name]) {
       productsList.value[store.name] = [];
     }
   });
-  
+
   saveDataSync();
   showStoreModal.value = false;
 };
@@ -603,66 +609,65 @@ const setupRealtimeSync = () => {
   unsubscribe = onSnapshot(doc(db, 'rooms', roomId), (docSnapshot) => {
     if (docSnapshot.exists()) {
       const data = docSnapshot.data();
-      
+
       if (data.lastChangedBy !== userId.value) {
-        
-        // Проверяем изменения в продуктах (только уведомление об обновлении)
+        // Проверяем изменения в продуктах
         if (data.productsList) {
           const remoteProducts = data.productsList;
           const localProducts = productsList.value;
-          
-          // Проверяем, были ли изменения
-          const hasChanges = JSON.stringify(remoteProducts) !== JSON.stringify(localProducts);
-          
-          if (hasChanges) {
-            // Определяем, какие магазины изменились
-            const changedStores = [];
-            for (const storeName in remoteProducts) {
-              const remoteStore = JSON.stringify(remoteProducts[storeName] || []);
-              const localStore = JSON.stringify(localProducts[storeName] || []);
-              if (remoteStore !== localStore) {
-                changedStores.push(storeName);
-              }
+
+          // Находим конкретный магазин, который изменился
+          let changedStore = null;
+          for (const storeName in remoteProducts) {
+            const remoteStore = JSON.stringify(remoteProducts[storeName] || []);
+            const localStore = JSON.stringify(localProducts[storeName] || []);
+            if (remoteStore !== localStore) {
+              changedStore = storeName;
+              break;
             }
-            
-            // Показываем уведомление для первого изменённого магазина
-            if (changedStores.length > 0) {
-              notifyListUpdated(changedStores[0], 'updated');
-            }
-            
-            productsList.value = remoteProducts;
-            localStorage.setItem('productsList', JSON.stringify(remoteProducts));
           }
+
+          // Показываем уведомление только для изменившегося магазина
+          if (changedStore) {
+            notifyListUpdated(changedStore);
+          }
+
+          productsList.value = remoteProducts;
+          localStorage.setItem('productsList', JSON.stringify(remoteProducts));
         }
-        
+
         // Остальная синхронизация магазинов...
         if (data.availableStores) {
           const remoteStores = data.availableStores;
-          const currentStoreIds = availableStores.value.map(s => s.id);
-          const newStores = remoteStores.filter(s => !currentStoreIds.includes(s.id));
-          
+          const currentStoreIds = availableStores.value.map((s) => s.id);
+          const newStores = remoteStores.filter(
+            (s) => !currentStoreIds.includes(s.id)
+          );
+
           if (newStores.length > 0) {
             availableStores.value = [...availableStores.value, ...newStores];
           }
         }
-        
+
         if (data.stores) {
           const remoteStores = data.stores;
-          const currentStoreNames = stores.value.map(s => s.name);
-          const newStores = remoteStores.filter(s => !currentStoreNames.includes(s.name));
-          
+          const currentStoreNames = stores.value.map((s) => s.name);
+          const newStores = remoteStores.filter(
+            (s) => !currentStoreNames.includes(s.name)
+          );
+
           if (newStores.length > 0) {
             stores.value = [...stores.value, ...newStores];
             localStorage.setItem('userStores', JSON.stringify(stores.value));
           }
         }
-        
+
         // Синхронизация истории
         if (data.history) {
           shoppingHistory.value = data.history;
           localStorage.setItem('shoppingHistory', JSON.stringify(data.history));
         }
-        
+
         // Синхронизация бюджета
         if (data.budget) {
           localStorage.setItem('budgetData', JSON.stringify(data.budget));
@@ -670,7 +675,7 @@ const setupRealtimeSync = () => {
             new CustomEvent('budgetUpdated', { detail: data.budget })
           );
         }
-        
+
         window.dispatchEvent(new Event('storesUpdated'));
       }
     }
@@ -717,11 +722,11 @@ const syncToFirebase = async (changedBy = null) => {
 
   const dataToSync = {
     stores: cleanData(stores.value) || [],
-    availableStores: cleanData(availableStores.value) || [], // <-- ДОБАВЛЯЕМ
+    availableStores: cleanData(availableStores.value) || [],
     productsList: cleanData(productsList.value) || {},
     history: cleanData(shoppingHistory.value) || [],
     budget: cleanData(budgetData) || { amount: 0, endDate: null, expenses: [] },
-    lastChangedBy: changedBy || userId.value,
+    lastChangedBy: userId.value,
   };
 
   try {
