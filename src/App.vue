@@ -1,7 +1,7 @@
 <script setup>
 import Footer from './components/Footer.vue';
 
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { initBackButtonHandler } from '@/composables/useBackButton';
 import { useRouter } from 'vue-router';
 import { setupNotifications } from '@/utils/notifications';
