@@ -4,6 +4,7 @@ import Footer from './components/Footer.vue';
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { initBackButtonHandler } from '@/composables/useBackButton';
 import { useRouter } from 'vue-router';
+import { Capacitor } from '@capacitor/core';
 import {
   setupNotifications,
   showLocalNotification,
@@ -83,7 +84,7 @@ onUnmounted(() => {
 <template>
   <div class="app-container">
     <div
-      v-if="updateAvailable"
+      v-if="showUpdateBanner"
       class="update-banner flex justify-between items-center px-4 py-2"
     >
       <span>Приложение обновлено до актуальной версии!</span>
