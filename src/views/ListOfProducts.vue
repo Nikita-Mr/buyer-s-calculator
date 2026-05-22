@@ -928,7 +928,7 @@ onUnmounted(() => {
           "
         >
           <UIcon icon="mdi:shopping" class="w-5 h-5" />
-          Список
+          Список хуй
         </button>
         <button
           @click="activeTab = 'history'"
