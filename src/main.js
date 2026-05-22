@@ -21,16 +21,16 @@ app.use(router)
 app.component('UIcon', Icon)
 app.mount('#app')
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('✅ Service Worker зарегистрирован:', registration.scope);
-      })
-      .catch(error => {
-        console.error('❌ Ошибка регистрации Service Worker:', error);
-      });
-  });
-}
+// if ('serviceWorker' in navigator) {
+//   window.addEventListener('load', () => {
+//     navigator.serviceWorker.register('/sw.js')
+//       .then(registration => {
+//         console.log('✅ Service Worker зарегистрирован:', registration.scope);
+//       })
+//       .catch(error => {
+//         console.error('❌ Ошибка регистрации Service Worker:', error);
+//       });
+//   });
+// }
 
 setTimeout(checkFirebase, 2000);

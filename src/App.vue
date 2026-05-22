@@ -9,49 +9,49 @@ import { setupNotifications } from '@/utils/notifications';
 const router = useRouter();
 let cleanup = null;
 
-const checkForUpdates = async () => {
-  try {
-    // Запрашиваем файл с версией с Netlify
-    const response = await fetch(
-      'https://buyers-calculator.netlify.app/version.json',
-      {
-        cache: 'no-cache', // Не используем кэш
-      }
-    );
+// const checkForUpdates = async () => {
+//   try {
+//     // Запрашиваем файл с версией с Netlify
+//     const response = await fetch(
+//       'https://buyers-calculator.netlify.app/version.json',
+//       {
+//         cache: 'no-cache', // Не используем кэш
+//       }
+//     );
 
-    if (response.ok) {
-      const latest = await response.json();
-      const currentVersion = localStorage.getItem('app_version') || '1.0.0';
+//     if (response.ok) {
+//       const latest = await response.json();
+//       const currentVersion = localStorage.getItem('app_version') || '1.0.0';
 
-      console.log('📱 Текущая версия:', currentVersion);
-      console.log('📱 Последняя версия:', latest.version);
+//       console.log('📱 Текущая версия:', currentVersion);
+//       console.log('📱 Последняя версия:', latest.version);
 
-      if (latest.version !== currentVersion) {
-        console.log('🔄 Доступно обновление!');
+//       if (latest.version !== currentVersion) {
+//         console.log('🔄 Доступно обновление!');
 
-        // Сохраняем новую версию
-        localStorage.setItem('app_version', latest.version);
+//         // Сохраняем новую версию
+//         localStorage.setItem('app_version', latest.version);
 
-        // Показываем уведомление
-        if ('Notification' in window && Notification.permission === 'granted') {
-          showLocalNotification({
-            title: '🔄 Обновление готово',
-            body: 'Перезапустите приложение для применения обновлений',
-          });
-        }
+//         // Показываем уведомление
+//         if ('Notification' in window && Notification.permission === 'granted') {
+//           showLocalNotification({
+//             title: '🔄 Обновление готово',
+//             body: 'Перезапустите приложение для применения обновлений',
+//           });
+//         }
 
-        // Можно также показать всплывающее сообщение внутри приложения
-        alert(
-          'Доступно обновление! Перезапустите приложение для применения изменений.'
-        );
-      } else {
-        console.log('✅ Приложение актуально');
-      }
-    }
-  } catch (error) {
-    console.log('❌ Не удалось проверить обновления:', error);
-  }
-};
+//         // Можно также показать всплывающее сообщение внутри приложения
+//         alert(
+//           'Доступно обновление! Перезапустите приложение для применения изменений.'
+//         );
+//       } else {
+//         console.log('✅ Приложение актуально');
+//       }
+//     }
+//   } catch (error) {
+//     console.log('❌ Не удалось проверить обновления:', error);
+//   }
+// };
 
 onMounted(async () => {
   setTimeout(checkForUpdates, 2000);
@@ -70,9 +70,9 @@ onMounted(async () => {
     await LocalNotifications.requestPermissions();
   }
 
-  setTimeout(() => {
-    checkForUpdates();
-  }, 3000);
+  // setTimeout(() => {
+  //   checkForUpdates();
+  // }, 3000);
 });
 
 onUnmounted(() => {
