@@ -4,15 +4,3 @@
 
 [build.environment]
   NODE_VERSION = "20.18.0"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
-  conditions = { Path = "!*.js", "!*.css", "!*.json", "!*.png", "!*.jpg", "!*.svg", "!*.ico", "!*.txt", "!*.map", "!*.webp" }
-
-[[redirects]]
-  from = "/assets/*"
-  to = "/assets/:splat"
-  status = 200
