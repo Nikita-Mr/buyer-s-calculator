@@ -3,6 +3,8 @@
   "appName": "Калькулятор покупок",
   "webDir": "dist",
   "server": {
+    "url": "https://buyers-calculator.netlify.app",
+    "cleartext": true,
     "androidScheme": "https"
   }
 }
