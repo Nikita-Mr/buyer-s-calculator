@@ -8,6 +8,8 @@ import { setupNotifications } from '@/utils/notifications';
 
 const router = useRouter();
 let cleanup = null;
+const updateAvailable = ref(false);
+
 
 const checkForUpdates = async () => {
   try {
