@@ -917,7 +917,7 @@ onUnmounted(() => {
 
     <!-- Основной контент -->
     <div v-if="!showStoreModal">
-      <div class="flex gap-2 sticky mb-4 top-0 z-10">
+      <div class="flex gap-2 sticky mb-4 top-0">
         <button
           @click="activeTab = 'products'"
           class="flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
