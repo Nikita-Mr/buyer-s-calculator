@@ -308,7 +308,7 @@ onUnmounted(() => {
             </svg>
           </div>
           <div class="room-details flex-1">
-            <span class="label block text-xs text-gray-400">Код комнаты хуй</span>
+            <span class="label block text-xs text-gray-400">Код комнаты</span>
             <span
               class="code block text-xl font-bold tracking-wider"
               :style="{ color: 'var(--color2)' }"
