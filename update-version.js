@@ -17,7 +17,7 @@ console.log(`✅ Версия обновлена до ${newVersion}`);
 
 // Автоматический коммит
 try {
-  execSync('git add public/version.json');
+  execSync('git add .');
   execSync(`git commit -m "Обновление версии до ${newVersion}" --no-verify`);
   console.log('✅ Коммит создан');
 } catch (error) {
