@@ -19,6 +19,7 @@ console.log(`✅ Версия обновлена до ${newVersion}`);
 try {
   execSync('git add .');
   execSync(`git commit -m "Обновление версии до ${newVersion}" --no-verify`);
+  execSync(`git push origin main`);
   console.log('✅ Коммит создан');
 } catch (error) {
   console.log('⚠️ Не удалось создать коммит автоматически');

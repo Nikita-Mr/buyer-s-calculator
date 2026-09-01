@@ -22,3 +22,15 @@ app.component('UIcon', Icon)
 app.mount('#app')
 
 setTimeout(checkFirebase, 2000);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/buyer-s-calculator/public/sw.js')
+      .then(registration => {
+        console.log('✅ Service Worker зарегистрирован:', registration.scope);
+      })
+      .catch(error => {
+        console.error('❌ Ошибка регистрации Service Worker:', error);
+      });
+  });
+}
