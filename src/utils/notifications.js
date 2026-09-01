@@ -1,4 +1,3 @@
-// notifications.js
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
@@ -74,7 +73,7 @@ export const showLocalNotification = async ({ title, body }) => {
     await LocalNotifications.schedule({
       notifications: [
         {
-          id: notificationId,  // <-- ИСПРАВЛЕНО: небольшое целое число
+          id: notificationId,
           title: title,
           body: body,
           sound: null,

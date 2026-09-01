@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { notifyBudgetExceeded, notifyBudgetWarning, showLocalNotification  } from '@/utils/notifications';
-// Бюджет
 const budgetData = reactive({
   amount: '',
   endDate: '',
@@ -23,28 +22,7 @@ const userId = computed(() => {
 
 let lastNotifiedPercent = 0
 
-// const testNotification = async () => {
-//   console.log('🔔 Тестовое уведомление');
-  
-//   // Тест 1: Обычное уведомление
-//   await showLocalNotification({
-//     title: '🔔 Тест уведомлений',
-//     body: 'Если вы видите это сообщение — уведомления работают!'
-//   });
-  
-//   // Тест 2: Превышение бюджета (через 2 секунды)
-//   setTimeout(async () => {
-//     await notifyBudgetExceeded('1500', '1000');
-//   }, 2000);
-  
-//   // Тест 3: Предупреждение бюджета (через 4 секунды)
-//   setTimeout(async () => {
-//     await notifyBudgetWarning('850', '1000');
-//   }, 4000);
-// };
 
-
-// Добавьте функцию синхронизации бюджета
 const syncBudgetToFirebase = async () => {
   if (!roomId) return;
   try {
@@ -55,7 +33,7 @@ const syncBudgetToFirebase = async () => {
     };
     await updateDoc(doc(db, 'rooms', roomId), {
       budget: dataToSync,
-      lastChangedBy: userId.value, // <-- ДОБАВЛЯЕМ, чтобы знать, кто изменил
+      lastChangedBy: userId.value,
     });
     console.log('✅ Бюджет синхронизирован с Firebase');
   } catch (e) {
@@ -63,7 +41,7 @@ const syncBudgetToFirebase = async () => {
   }
 };
 
-// Список расходов (загружаем из localStorage)
+// Список расходов
 const expenses = ref([]);
 const newExpense = reactive({
   name: '',
@@ -148,7 +126,7 @@ const saveExpenses = () => {
   syncBudgetToFirebase();
 };
 
-// Загрузка данных (включая расходы из истории)
+// Загрузка данных
 const loadData = () => {
   // Загружаем расходы из localStorage
   const savedExpenses = localStorage.getItem('budgetExpenses');
@@ -217,7 +195,6 @@ onMounted(() => {
           budgetData.amount = data.budget.amount || '';
           budgetData.endDate = data.budget.endDate || '';
           
-          // ОБЪЕДИНЯЕМ расходы, а не заменяем
           const remoteExpenses = data.budget.expenses || [];
           const localExpenses = expenses.value;
           
@@ -268,7 +245,7 @@ watch([totalSpent, () => budgetData.amount], ([spent, budget]) => {
     notifyBudgetWarning(spentNum.toFixed(0), budgetNum.toFixed(0));
     lastNotifiedPercent = 95;
   }
-  // Сбрасываем, если процент упал (например, удалили расходы)
+  // Сбрасываем, если процент упал
   else if (percent < 80) {
     lastNotifiedPercent = 0;
   }
@@ -297,12 +274,6 @@ watch([totalSpent, () => budgetData.amount], ([spent, budget]) => {
         />
       </svg>
     </button>
-    <!-- <button 
-      @click="testNotification"
-      class="absolute top-4 right-4 w-[40px] h-[40px] bg-[var(--color2)] rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-transform text-white text-xl"
-    >
-      🔔
-    </button> -->
     <!-- Заголовок -->
     <div class="text-center pt-8 pb-6 px-4">
       <h1 class="text-2xl font-bold text-gray-800">Планировщик бюджета</h1>
@@ -454,7 +425,7 @@ watch([totalSpent, () => budgetData.amount], ([spent, budget]) => {
         </div>
       </div>
 
-      <!-- Список расходов (включая те, что из истории) -->
+      <!-- Список расходов -->
       <div v-if="expenses.length > 0" class="border-t border-gray-100 pt-4">
         <h3 class="text-base font-bold text-gray-700 mb-3">Ваши расходы</h3>
         <div class="space-y-2 max-h-60 overflow-y-auto">

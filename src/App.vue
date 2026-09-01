@@ -21,13 +21,11 @@ const showUpdateBanner = computed(() => {
 
 const closeUpdateBanner = () => {
   updateBannerClosed.value = true;
-  // Сохраняем в localStorage, чтобы баннер не появлялся снова
   localStorage.setItem('update_banner_closed', 'true');
 };
 
 const checkForUpdates = async () => {
   try {
-    // Запрашиваем version.json с GitHub Pages
     const baseUrl = 'https://nikita-mr.github.io/buyer-s-calculator';
     const response = await fetch(`${baseUrl}/version.json?t=${Date.now()}`, {
       cache: 'no-store',
@@ -42,7 +40,6 @@ const checkForUpdates = async () => {
 
       if (latest.version !== currentVersion) {
         updateAvailable.value = true;
-        // Проверяем, не закрыл ли пользователь баннер раньше
         const wasClosed = localStorage.getItem('update_banner_closed');
         if (wasClosed === 'true') {
           updateBannerClosed.value = true;
@@ -59,11 +56,9 @@ onMounted(async () => {
   const result = initBackButtonHandler(router);
   cleanup = result.cleanup;
 
-  // Инициализация уведомлений
   const hasPermission = await setupNotifications();
   console.log('📱 Уведомления инициализированы, разрешение:', hasPermission);
 
-  // Если в нативном приложении, запрашиваем разрешение ещё раз
   if (Capacitor.getPlatform() !== 'web' && !hasPermission) {
     const { LocalNotifications } = await import(
       '@capacitor/local-notifications'
@@ -104,7 +99,6 @@ onUnmounted(() => {
       </button>
     </div>
     <main class="main-content">
-      <!-- Здесь будет ваш контент -->
       <div class="content">
         <router-view></router-view>
       </div>
@@ -134,17 +128,16 @@ onUnmounted(() => {
 }
 
 .app-container {
-  min-height: 100vh; /* Минимальная высота = весь экран */
+  min-height: 100vh; 
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* Распределяет пространство */
+  justify-content: space-between; 
 }
 
 .main-content {
-  flex: 1; /* Занимает всё свободное пространство */
-  overflow-y: auto; /* Скролл внутри контента если нужно */
+  flex: 1; 
+  overflow-y: auto; 
   padding: 20px;
 }
 
-/* Пример для футера (в вашем Footer.vue уже есть свои стили) */
 </style>

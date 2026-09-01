@@ -1,8 +1,11 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { notifyListUpdated } from '@/utils/notifications';
-// Состояние
+import draggable from 'vuedraggable';
+
 const showStoreModal = ref(true);
+const showRemoveModal = ref(false);
+const storeToRemove = ref(null);
 const stores = ref([]);
 const newStoreName = ref('');
 const newStoreIcon = ref('');
@@ -21,7 +24,7 @@ const productsList = ref({});
 const shoppingHistory = ref([]);
 const productsData = ref({});
 
-import { db } from '@/firebase'; // Убедитесь, что firebase.js настроен
+import { db } from '@/firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 import InviteRoom from '@/components/InviteRoom.vue';
 
@@ -49,14 +52,11 @@ const closeAddStore = () => {
   showAddStore.value = false;
   newStoreName.value = '';
 };
-
-// Регистрация вкладки для навигации назад
 const switchTab = (tabName) => {
   activeTab.value = tabName;
 };
 
 useTabBack('products-tab', activeTab, switchTab);
-// Регистрация модалок (одна строка на каждую)
 useModalBack('store-modal', showStoreModal, closeStoreModal);
 useModalBack('edit-modal', editingStore, closeEditModal);
 useModalBack('history-modal', showHistoryModal, closeHistoryModal);
@@ -176,7 +176,7 @@ const saveToHistoryWithCost = () => {
     date: new Date().toISOString(),
     store: storeName,
     products: [...list],
-    totalCost: cost, // Добавляем поле стоимости
+    totalCost: cost,
     storeLogo: storeInfo?.logo,
     storeColor: storeInfo?.color,
   };
@@ -186,7 +186,6 @@ const saveToHistoryWithCost = () => {
 
   // Если есть стоимость - отправляем в бюджет
   if (cost > 0) {
-    // Здесь мы будем вызывать функцию добавления расхода в бюджет
     addExpenseToBudget(storeName, cost);
   }
 
@@ -213,7 +212,6 @@ const sortedProductsList = computed(() => {
       result[storeName] = [];
       continue;
     }
-    // Сортируем: false (незачёркнутые) идут первыми, true (зачёркнутые) - последними
     result[storeName] = [...productsList.value[storeName]].sort((a, b) => {
       return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
     });
@@ -241,7 +239,7 @@ const loadData = () => {
   const savedHistory = localStorage.getItem('shoppingHistory');
   const savedAvailableStores = localStorage.getItem('allAvailableStores');
 
-  // Восстанавливаем availableStores (с выбранными магазинами)
+  // Восстанавливаем availableStores
   if (savedAvailableStores) {
     const available = JSON.parse(savedAvailableStores);
     // Обновляем availableStores, сохраняя предопределённые id
@@ -390,7 +388,6 @@ const addCustomStore = () => {
 
   availableStores.value.push(customStore);
 
-  // Сразу синхронизируем с партнером
   saveDataSync();
 
   newStoreName.value = '';
@@ -408,13 +405,10 @@ const toggleProductComplete = (storeName, productId) => {
   const productIndex = products.findIndex((p) => p.id === productId);
   if (productIndex === -1) return;
 
-  // Меняем статус
   products[productIndex].completed = !products[productIndex].completed;
 
-  // Сохраняем
   saveDataSync();
 
-  // ПРОВЕРЯЕМ, ВСЕ ЛИ ЗАЧЁРКНУТЫ
   const allCompleted = products.every((p) => p.completed);
   if (allCompleted && products.length > 0) {
     pendingStoreForCost.value = storeName;
@@ -430,13 +424,12 @@ const saveWithCost = (skip = false) => {
   const storeInfo = stores.value.find((s) => s.name === storeName);
   const cost = parseFloat(purchaseCost.value) || 0;
 
-  // Если не пропускаем — добавляем в историю
   if (!skip) {
     const historyItem = {
       id: Date.now(),
       date: new Date().toISOString(),
       store: storeName,
-      products: [...list], // Сохраняем копию списка
+      products: [...list],
       totalCost: cost,
       storeLogo: storeInfo?.logo,
       storeColor: storeInfo?.color,
@@ -471,13 +464,10 @@ const saveWithCost = (skip = false) => {
       .catch((e) => console.error('❌ Ошибка отправки бюджета:', e));
   }
 
-  // ОЧИЩАЕМ СПИСОК ПРОДУКТОВ
   productsList.value[storeName] = [];
 
-  // Сохраняем изменения
   saveDataSync();
 
-  // Сбрасываем модалку
   purchaseCost.value = '';
   showCostModal.value = false;
   pendingStoreForCost.value = '';
@@ -486,6 +476,18 @@ const saveWithCost = (skip = false) => {
 // Обработчик для тач-событий на телефоне
 const handleProductTap = (storeName, productId) => {
   toggleProductComplete(storeName, productId);
+};
+
+const isDragging = ref(false);
+
+const onDragEnd = () => {
+  isDragging.value = false;
+  saveDataSync();
+  syncToFirebase();
+};
+
+const onDragStart = () => {
+  isDragging.value = true;
 };
 
 const saveToHistory = (storeName) => {
@@ -546,9 +548,25 @@ const deleteProduct = (storeName, productId) => {
   syncToFirebase();
 };
 
+const openRemoveModal = (store) => {
+  storeToRemove.value = store;
+  showRemoveModal.value = true;
+};
+
+const closeRemoveModal = () => {
+  showRemoveModal.value = false;
+  storeToRemove.value = null;
+};
+
+const confirmRemoveStore = () => {
+  if (storeToRemove.value) {
+    removeStore(storeToRemove.value.name);
+    closeRemoveModal();
+  }
+};
+
 const removeStore = (storeName) => {
   stores.value = stores.value.filter((s) => s.name !== storeName);
-  // Также убираем selected у availableStores
   const availStore = availableStores.value.find((s) => s.name === storeName);
   if (availStore) availStore.selected = false;
   delete productsText.value[storeName];
@@ -636,7 +654,6 @@ const setupRealtimeSync = () => {
           localStorage.setItem('productsList', JSON.stringify(remoteProducts));
         }
 
-        // Остальная синхронизация магазинов...
         if (data.availableStores) {
           const remoteStores = data.availableStores;
           const currentStoreIds = availableStores.value.map((s) => s.id);
@@ -946,191 +963,276 @@ onUnmounted(() => {
 
       <div v-if="activeTab === 'products'" class="space-y-4 pb-24">
         <div
-          v-for="store in stores"
-          :key="store.name"
-          class="bg-white rounded-2xl shadow-md overflow-hidden"
-        >
-          <div
-            class="p-4 text-white flex justify-between items-center"
-            :style="{ backgroundColor: 'var(--color2)' }"
-          >
-            <div class="flex items-center gap-2">
-              <div
-                class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-                :style="{
-                  backgroundColor: store.color || 'var(--color2)',
-                  color: getContrastColor(store.color || 'var(--color2)'),
-                }"
-                v-html="getStoreDisplay(store)"
-              ></div>
-              <h3 class="font-bold text-lg">{{ store.name }}</h3>
-            </div>
-            <div class="flex gap-2">
-              <button
-                @click="openEdit(store)"
-                class="text-white/90 hover:text-white"
-              >
-                <UIcon icon="mdi:pencil" class="w-5 h-5" />
-              </button>
-              <button
-                @click="removeStore(store.name)"
-                class="text-white/90 hover:text-white"
-              >
-                <UIcon icon="mdi:delete" class="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-if="showCostModal"
-            class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          >
-            <div class="bg-white rounded-2xl w-full max-w-md p-6">
-              <h3 class="text-xl font-bold mb-4 text-center">
-                Стоимость покупки
-              </h3>
-              <div class="relative mb-4">
-                <span
-                  class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base font-bold"
-                  >₽</span
-                >
-                <input
-                  type="number"
-                  v-model="purchaseCost"
-                  class="w-full bg-gray-50 border border-gray-200 p-4 pl-10 rounded-xl text-right text-lg font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color2)]"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-              <div class="flex gap-2">
-                <button
-                  @click="saveToHistoryWithCost(currentStoreForCost)"
-                  class="flex-1 bg-[var(--color2)] text-white py-3 rounded-xl font-semibold"
-                >
-                  Сохранить
-                </button>
-                <button
-                  @click="showCostModal = false"
-                  class="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-if="showCostModal"
-            class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          >
-            <div class="bg-white rounded-2xl w-full max-w-md p-6">
-              <h3 class="text-xl font-bold mb-2 text-center">
-                Покупка завершена!
-              </h3>
-              <p class="text-gray-500 text-center mb-4">
-                Сколько вы заплатили?
-              </p>
-
-              <div class="relative mb-4">
-                <span
-                  class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base font-bold"
-                  >₽</span
-                >
-                <input
-                  type="number"
-                  v-model="purchaseCost"
-                  class="w-full bg-gray-50 border border-gray-200 p-4 pl-10 rounded-xl text-right text-lg font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color2)]"
-                  placeholder="0"
-                  inputmode="numeric"
-                />
-              </div>
-
-              <div class="flex gap-2">
-                <button
-                  @click="saveWithCost(false)"
-                  class="flex-1 bg-[var(--color2)] text-white py-3 rounded-xl font-semibold"
-                >
-                  Сохранить
-                </button>
-                <button
-                  @click="
-                    purchaseCost = '0';
-                    saveWithCost(true);
-                  "
-                  class="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
-                >
-                  Пропустить
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div
-            v-if="sortedProductsList[store.name]?.length > 0"
-            class="divide-y"
-          >
-            <div
-              v-for="product in sortedProductsList[store.name]"
-              :key="product.id"
-              @click="handleProductTap(store.name, product.id)"
-              class="p-3 flex justify-between items-center hover:bg-gray-50 group cursor-pointer touch-manipulation"
-            >
-              <div class="flex items-center gap-3">
-                <UIcon
-                  :icon="
-                    product.completed
-                      ? 'mdi:check-circle'
-                      : 'mdi:checkbox-blank-circle'
-                  "
-                  :class="
-                    product.completed
-                      ? 'text-green-500'
-                      : 'text-[var(--color2)]'
-                  "
-                  class="w-5 h-5"
-                />
-                <span
-                  :class="
-                    product.completed
-                      ? 'line-through text-gray-400'
-                      : 'text-gray-700'
-                  "
-                  class="text-base"
-                >
-                  {{ product.name }}
-                </span>
-              </div>
-              <button
-                @click.stop="deleteProduct(store.name, product.id)"
-                class="opacity-0 group-hover:opacity-100 transition-opacity text-red-400"
-              >
-                <UIcon icon="mdi:close" class="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-else
-            class="p-6 text-center text-gray-400"
-            @click="openEdit(store)"
-          >
-            <UIcon
-              icon="mdi:clipboard-text-outline"
-              class="w-12 h-12 mx-auto mb-2 opacity-50"
-            />
-            <p>Нет продуктов</p>
-            <p class="text-sm">Нажмите чтобы добавить</p>
-          </div>
-        </div>
-
-        <div
           v-if="stores.length === 0"
           @click="showStoreModal = true"
-          class="w-full h-32 border border-dashed border-gray-400 rounded-2xl flex justify-center items-center text-5xl text-gray-400"
+          class="w-full h-32 border border-dashed border-gray-400 rounded-2xl flex justify-center items-center text-5xl text-gray-400 cursor-pointer hover:border-[var(--color2)] hover:text-[var(--color2)] transition-colors"
         >
           +
         </div>
 
+        <draggable
+          v-model="stores"
+          item-key="name"
+          handle=".drag-handle"
+          class="space-y-4"
+          @start="isDragging = true"
+          @end="onDragEnd"
+        >
+          <template #item="{ element: store }">
+            <div>
+              <div
+                class="bg-white rounded-2xl shadow-md overflow-hidden transition-all duration-200"
+                :class="{
+                  'cursor-grab hover:shadow-lg': !isDragging,
+                  'cursor-grabbing shadow-2xl scale-[1.02]': isDragging,
+                }"
+              >
+                <!-- Шапка магазина с drag-handle -->
+                <div
+                  class="p-4 text-white flex justify-between items-center"
+                  :style="{ backgroundColor: 'var(--color2)' }"
+                >
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="drag-handle cursor-grab p-1 hover:bg-white/20 rounded transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <circle
+                          cx="9"
+                          cy="8"
+                          r="1.5"
+                          fill="rgba(255,255,255,0.8)"
+                        />
+                        <circle
+                          cx="15"
+                          cy="8"
+                          r="1.5"
+                          fill="rgba(255,255,255,0.8)"
+                        />
+                        <circle
+                          cx="9"
+                          cy="13"
+                          r="1.5"
+                          fill="rgba(255,255,255,0.8)"
+                        />
+                        <circle
+                          cx="15"
+                          cy="13"
+                          r="1.5"
+                          fill="rgba(255,255,255,0.8)"
+                        />
+                      </svg>
+                    </div>
+                    <div
+                      class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
+                      :style="{ backgroundColor: store.color || '' }"
+                      v-html="getStoreDisplay(store)"
+                    ></div>
+                    <h3 class="font-bold text-lg">{{ store.name }}</h3>
+                  </div>
+                  <div class="flex gap-2">
+                    <button
+                      @click="openEdit(store)"
+                      class="text-white/90 hover:text-white transition-colors"
+                    >
+                      <UIcon icon="mdi:pencil" class="w-5 h-5" />
+                    </button>
+                    <button
+                      @click="openRemoveModal(store)"
+                      class="text-white/90 hover:text-white transition-colors"
+                    >
+                      <UIcon icon="mdi:delete" class="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Модальное окно подтверждения удаления магазина -->
+                <div
+                  v-if="showRemoveModal"
+                  class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                  @click.self="closeRemoveModal"
+                >
+                  <div
+                    class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
+                  >
+                    <div class="p-4 border-b flex justify-between items-center">
+                      <h3 class="text-xl font-bold flex items-center gap-2">
+                        <div
+                          class="rounded-full flex justify-center items-center text-sm font-bold"
+                          :class="
+                            storeToRemove?.isName == null
+                              ? 'w-8 h-8'
+                              : storeToRemove?.isName
+                              ? 'w-8 h-8'
+                              : ' '
+                          "
+                          :style="{
+                            backgroundColor: storeToRemove?.color || '#9E9E9E',
+                            color: getContrastColor(
+                              storeToRemove?.color || '#9E9E9E'
+                            ),
+                          }"
+                          v-html="getStoreDisplay(storeToRemove)"
+                        ></div>
+                        <span>
+                          {{
+                            storeToRemove?.isName == null
+                              ? storeToRemove?.name
+                              : storeToRemove?.isName
+                              ? storeToRemove?.name
+                              : ''
+                          }}
+                        </span>
+                      </h3>
+                      <button
+                        @click="closeRemoveModal"
+                        class="text-gray-500 hover:text-gray-700 transition-colors"
+                      >
+                        <UIcon icon="mdi:close" class="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    <!-- Тело модалки -->
+                    <div class="p-6">
+                      <div class="text-center">
+                        <!-- Иконка предупреждения -->
+                        <div
+                          class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="32"
+                            height="32"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#EF4444"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="#EF4444"
+                              fill="#FEE2E2"
+                              stroke-width="2"
+                            />
+                            <line
+                              x1="12"
+                              y1="8"
+                              x2="12"
+                              y2="13"
+                              stroke="#EF4444"
+                              stroke-width="2.5"
+                            />
+                            <circle
+                              cx="12"
+                              cy="17"
+                              r="1"
+                              fill="#EF4444"
+                              stroke="none"
+                            />
+                          </svg>
+                        </div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">
+                          Вы уверены, что хотите удалить магазин?
+                        </h4>
+                        <p class="text-gray-500 text-sm">
+                          Все продукты в этом магазине также будут удалены. Это
+                          действие нельзя отменить.
+                        </p>
+                      </div>
+
+                      <!-- Кнопки -->
+                      <div class="flex gap-3 mt-6">
+                        <button
+                          @click="closeRemoveModal"
+                          class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          @click="confirmRemoveStore"
+                          class="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Список продуктов -->
+                <div
+                  v-if="sortedProductsList[store.name]?.length > 0"
+                  class="divide-y"
+                >
+                  <div
+                    v-for="product in sortedProductsList[store.name]"
+                    :key="product.id"
+                    @click="handleProductTap(store.name, product.id)"
+                    class="p-3 flex justify-between items-center hover:bg-gray-50 group cursor-pointer touch-manipulation"
+                  >
+                    <div class="flex items-center gap-3">
+                      <UIcon
+                        :icon="
+                          product.completed
+                            ? 'mdi:check-circle'
+                            : 'mdi:checkbox-blank-circle'
+                        "
+                        :class="
+                          product.completed
+                            ? 'text-green-500'
+                            : 'text-[var(--color2)]'
+                        "
+                        class="w-5 h-5"
+                      />
+                      <span
+                        :class="
+                          product.completed
+                            ? 'line-through text-gray-400'
+                            : 'text-gray-700'
+                        "
+                        class="text-base"
+                      >
+                        {{ product.name }}
+                      </span>
+                    </div>
+                    <button
+                      @click.stop="deleteProduct(store.name, product.id)"
+                      class="opacity-0 group-hover:opacity-100 transition-opacity text-red-400"
+                    >
+                      <UIcon icon="mdi:close" class="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Пустой список продуктов -->
+                <div
+                  v-else
+                  class="p-6 text-center text-gray-400 cursor-pointer hover:bg-gray-50 transition-colors"
+                  @click="openEdit(store)"
+                >
+                  <UIcon
+                    icon="mdi:clipboard-text-outline"
+                    class="w-12 h-12 mx-auto mb-2 opacity-50"
+                  />
+                  <p>Нет продуктов</p>
+                  <p class="text-sm">Нажмите чтобы добавить</p>
+                </div>
+              </div>
+            </div>
+          </template>
+        </draggable>
+
+        <!-- Кнопка добавления магазина -->
         <button
           @click="showStoreModal = true"
           class="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white"
@@ -1138,6 +1240,50 @@ onUnmounted(() => {
         >
           <UIcon icon="mdi:plus" class="w-6 h-6" />
         </button>
+
+        <div
+          v-if="showCostModal"
+          class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        >
+          <div class="bg-white rounded-2xl w-full max-w-md p-6">
+            <h3 class="text-xl font-bold mb-4 text-center">
+              Стоимость покупки
+            </h3>
+            <p class="text-gray-500 text-center mb-4">Сколько вы заплатили?</p>
+
+            <div class="relative mb-4">
+              <span
+                class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base font-bold"
+                >₽</span
+              >
+              <input
+                type="number"
+                v-model="purchaseCost"
+                class="w-full bg-gray-50 border border-gray-200 p-4 pl-10 rounded-xl text-right text-lg font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color2)]"
+                placeholder="0"
+                inputmode="numeric"
+              />
+            </div>
+
+            <div class="flex gap-2">
+              <button
+                @click="saveWithCost(false)"
+                class="flex-1 bg-[var(--color2)] text-white py-3 rounded-xl font-semibold"
+              >
+                Сохранить
+              </button>
+              <button
+                @click="
+                  purchaseCost = '0';
+                  saveWithCost(true);
+                "
+                class="flex-1 bg-gray-200 py-3 rounded-xl font-semibold"
+              >
+                Пропустить
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-if="activeTab === 'history'" class="p-4 space-y-6 pb-24">

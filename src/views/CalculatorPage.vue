@@ -1,7 +1,3 @@
-<script setup>
-// Импортируем иконки как компоненты или используем SVG инлайн
-</script>
-
 <template>
   <div class="bg-[var(--color3)] font-sans">
     <!-- Заголовок -->
@@ -111,7 +107,7 @@
           </div>
         </router-link>
 
-        <!-- Пустая ячейка (для будущих категорий) -->
+        <!-- Пустая ячейка -->
         <div class="flex flex-col items-center p-4 rounded-xl opacity-30">
           <div
             class="w-[70px] h-[70px] rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center mb-3"
@@ -134,7 +130,6 @@
 </template>
 
 <style scoped>
-/* Скрываем стрелки в инпутах number */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;

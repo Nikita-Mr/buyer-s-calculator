@@ -1,14 +1,12 @@
 <script setup>
 import { ref, computed } from 'vue';
 
-// Переменные для полей ввода
 const pricePerKg = ref('');
 const isNotPerKg = ref(false);
 const actualWeight = ref('');
 const priceFromTag = ref('');
 const targetWeight = ref('');
 
-// Вычисляемое поле: Итоговая стоимость
 const finalCost = computed(() => {
   const weight = parseFloat(targetWeight.value);
   if (!weight || weight <= 0) return '';
@@ -16,7 +14,6 @@ const finalCost = computed(() => {
   let basePricePerGram = 0;
 
   if (isNotPerKg.value) {
-    // Режим: цена указана НЕ за кг (берем из ценника)
     const tagWeight = parseFloat(actualWeight.value);
     const tagPrice = parseFloat(priceFromTag.value);
 
@@ -24,18 +21,15 @@ const finalCost = computed(() => {
 
     basePricePerGram = tagPrice / tagWeight;
   } else {
-    // Режим: цена за кг
     const kgPrice = parseFloat(pricePerKg.value);
     if (!kgPrice || kgPrice <= 0) return '';
 
     basePricePerGram = kgPrice / 1000;
   }
 
-  // Итоговая стоимость
   return (basePricePerGram * weight).toFixed(2);
 });
 
-// Проверка: произведен ли расчет
 const isCalculated = computed(() => {
   return finalCost.value !== '' && parseFloat(finalCost.value) > 0;
 });
@@ -94,7 +88,7 @@ const isCalculated = computed(() => {
         </div>
       </div>
 
-      <!-- 2. Чекбокс (стильный переключатель) -->
+      <!-- 2. Чекбокс -->
       <div class="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
         <span class="font-medium text-gray-700 text-sm">Цена указана не за кг.</span>
         <label class="relative inline-flex items-center cursor-pointer">
@@ -173,7 +167,6 @@ const isCalculated = computed(() => {
 </template>
 
 <style>
-/* Анимация появления блока "Данные с ценника" */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -189,7 +182,6 @@ const isCalculated = computed(() => {
   animation: fadeInUp 0.3s ease-out forwards;
 }
 
-/* Скрываем стрелки в инпутах number */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button {
   -webkit-appearance: none;

@@ -51,7 +51,7 @@ const leaveRoom = async () => {
     try {
       // Удаляем пользователя из списка партнёров
       const roomRef = doc(db, 'rooms', roomId.value);
-      const roomSnap = await getDoc(roomRef);  // <-- ТЕПЕРЬ БУДЕТ РАБОТАТЬ
+      const roomSnap = await getDoc(roomRef); 
       
       if (roomSnap.exists()) {
         const data = roomSnap.data();
@@ -334,7 +334,6 @@ onUnmounted(() => {
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              <!-- <span>Выйти</span> -->
             </button>
           </div>
 
@@ -366,7 +365,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Только глобальные переменные и специфичные для фокуса стили, которые нельзя через Tailwind */
 .code-input:focus {
   border-color: var(--color2) !important;
   outline: none;

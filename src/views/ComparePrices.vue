@@ -27,16 +27,12 @@ const getPricePerUnit = (item) => {
   
   // Приводим к базовой единице (г, мл)
   if (item.unit === 'кг') {
-    // 1 кг = 1000 г, поэтому количество в кг умножаем на 1000
     baseQuantity = quantity * 1000;
   } else if (item.unit === 'л') {
-    // 1 л = 1000 мл, поэтому количество в л умножаем на 1000
     baseQuantity = quantity * 1000;
   } else if (item.unit === 'шт') {
-    // Для штук оставляем как есть (цена за штуку)
     baseQuantity = quantity;
   }
-  // Для грамм и миллилитров оставляем как есть
   
   return price / baseQuantity;
 };
@@ -292,7 +288,6 @@ const isWinner = (itemId) => {
 </template>
 
 <style scoped>
-/* Скрываем стрелки в инпутах number */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -302,7 +297,6 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* Анимация для появления победителя */
 @keyframes pulse-glow {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(57, 172, 175, 0.3);
@@ -316,7 +310,6 @@ input[type=number] {
   transition: all 0.3s ease;
 }
 
-/* Увеличиваем размеры для телефона */
 input, select, button {
   min-height: 40px;
 }

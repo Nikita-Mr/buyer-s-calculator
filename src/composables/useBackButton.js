@@ -36,7 +36,7 @@ export const unregisterTab = (tabId) => {
   tabStack = tabStack.filter(t => t.id !== tabId);
 };
 
-// Инициализация глобального обработчика (вызвать один раз в App.vue)
+// Инициализация глобального обработчика
 export const initBackButtonHandler = (router) => {
   if (Capacitor.getPlatform() !== 'android') return () => {};
   
@@ -102,7 +102,7 @@ export const initBackButtonHandler = (router) => {
   return { cleanup, handleBack };
 };
 
-// Хук для компонентов (для модалок)
+// Хук для компонентов
 export const useModalBack = (modalId, isActive, closeFunction) => {
   onMounted(() => {
     if (isActive.value) {
@@ -123,7 +123,7 @@ export const useModalBack = (modalId, isActive, closeFunction) => {
   });
 };
 
-// Хук для вкладок (для навигации назад)
+// Хук для вкладок 
 export const useTabBack = (tabId, currentTabRef, switchFunction) => {
   onMounted(() => {
     registerTab(tabId, switchFunction, currentTabRef);

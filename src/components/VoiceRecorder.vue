@@ -4,11 +4,11 @@ import { ref, onMounted, onUnmounted } from 'vue';
 const props = defineProps({
   storeName: {
     type: String,
-    default: null, // если null - глобальный режим с автоопределением магазина
+    default: null,
   },
   storesList: {
     type: Array,
-    default: () => [], // для глобального режима
+    default: () => [],
   },
 });
 

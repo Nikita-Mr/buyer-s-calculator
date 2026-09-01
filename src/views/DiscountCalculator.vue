@@ -2,22 +2,22 @@
 import { ref, computed } from 'vue';
 
 // Режим: один товар или несколько
-const mode = ref('single'); // 'single' | 'multiple'
+const mode = ref('single');
 
-// --- Данные для режима "Один товар" ---
+// Данные для режима "Один товар"
 const singlePrice = ref('');
 const singleDiscountPrice = ref('');
 const singleDiscountPercent = ref('');
 
-// --- Данные для режима "Несколько товаров" ---
+//  Данные для режима "Несколько товаров"
 const items = ref([
   { id: 1, name: '', price: '' },
   { id: 2, name: '', price: '' },
 ]);
-const totalDiscountPrice = ref(''); // Общая цена со скидкой для нескольких товаров
-const totalDiscountPercent = ref(''); // Общий процент скидки для нескольких товаров
+const totalDiscountPrice = ref('');
+const totalDiscountPercent = ref('');
 
-// --- Результаты для одного товара ---
+//  Результаты для одного товара
 const singleResult = computed(() => {
   const price = parseFloat(singlePrice.value);
   const discPrice = parseFloat(singleDiscountPrice.value);
@@ -48,7 +48,7 @@ const singleResult = computed(() => {
   return null;
 });
 
-// --- Результаты для нескольких товаров ---
+//  Результаты для нескольких товаров
 const multipleResult = computed(() => {
   const validItems = items.value.filter((item) => {
     const price = parseFloat(item.price);
@@ -103,7 +103,7 @@ const multipleResult = computed(() => {
   };
 });
 
-// --- Функции для управления списком товаров ---
+//  Функции для управления списком товаров
 const addItem = () => {
   const maxId = items.value.reduce((max, item) => Math.max(max, item.id), 0);
   items.value.push({
@@ -121,7 +121,7 @@ const removeItem = (index) => {
   items.value.splice(index, 1);
 };
 
-// --- Сброс полей при переключении режима ---
+//  Сброс полей при переключении режима
 const resetFields = () => {
   singlePrice.value = '';
   singleDiscountPrice.value = '';
@@ -134,7 +134,7 @@ const resetFields = () => {
   totalDiscountPercent.value = '';
 };
 
-// --- Форматирование цены ---
+//  Форматирование цены
 const formatPrice = (price) => {
   if (!price) return '—';
   return parseFloat(price).toFixed(2) + ' ₽';
@@ -295,8 +295,10 @@ const formatPrice = (price) => {
         <div v-if="singleResult" class="mt-4 pt-4 border-t border-gray-100">
           <div class="grid grid-cols-2 gap-3">
             <div class="bg-gray-50 rounded-xl p-3 text-center">
-              <div class="text-xs text-gray-500">Цена со скидкой</div>
-              <div class="text-lg font-bold text-[var(--color2)]">
+              <div class="text-xs text-gray-500 text-center">
+                Цена со скидкой:
+              </div>
+              <div class="mt-1 text-lg font-bold text-[var(--color2)]">
                 {{ singleResult.finalPrice }} ₽
               </div>
             </div>
@@ -310,7 +312,7 @@ const formatPrice = (price) => {
           <div class="mt-2 text-center text-sm text-gray-600">
             Скидка: <span class="font-bold">{{ singleResult.percent }}%</span>
           </div>
-          <div class="mt-1 text-center text-xs text-gray-400">
+          <div class="text-sm text-center text-gray-400">
             Оригинальная цена: {{ singleResult.originalPrice }} ₽
           </div>
         </div>
@@ -475,7 +477,6 @@ const formatPrice = (price) => {
 </template>
 
 <style scoped>
-/* Скрываем стрелки в инпутах number */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
